@@ -1,5 +1,5 @@
 
-1. Importa tus Extensiones de VS Code
+1. Importa tus Extensiones de VS Code (Se puede usar VS code ignorar los pasos de Kiro e instalar directo  las extensiones Nomic Foundation, Prettier - Code formatter)
 
 Kiro es compatible con el ecosistema de extensiones de VS Code. Instala estas herramientas clave desde su mercado de extensiones para habilitar Solidity:
 • Solidity (de Juan Blanco o Nomic Foundation): Proporciona resaltado de sintaxis, autocompletado inteligente (IntelliSense) y compilación básica.
