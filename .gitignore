@@ -1,20 +1,37 @@
-# Compiler files
+# --- Build / compiler artifacts ---
 cache/
 out/
 
-# Commonly ignored directories
+# --- Foundry / deployment artifacts ---
+broadcast/
+!broadcast/.gitkeep
+
+# --- Node / frontend dependencies ---
+**/node_modules/
+**/dist/
+**/.vite/
+**/coverage/
+
+# --- Logs / local editor files ---
+*.log
 .logs/
 .ignore/
 
-# Ignores development broadcast logs
-!/broadcast
-/broadcast/*/31337/
-/broadcast/**/dry-run/
-
-# Docs
-docs/
-
-# Dotenv file
+# --- Secrets / credentials ---
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+*.p12
+*.keystore
+*.secret
+**/*.secret
+secrets.*
+
+# --- OS metadata ---
+.DS_Store
+Thumbs.db
+
+# --- Docs ---
+docs/
