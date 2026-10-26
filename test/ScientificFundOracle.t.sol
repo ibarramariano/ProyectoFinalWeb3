@@ -11,12 +11,7 @@ contract MockOracle is IScientificOracle {
         approved = _approved;
     }
 
-    function validateMilestone(
-        address,
-        uint256,
-        string memory,
-        uint256
-    ) external view override returns (bool) {
+    function validateMilestone(address, uint256, string memory, uint256) external view override returns (bool) {
         return approved;
     }
 }
