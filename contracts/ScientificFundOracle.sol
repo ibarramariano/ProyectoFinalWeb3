@@ -10,12 +10,10 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 // 1) Interfaz que define el contrato externo con el que este contrato interactúa.
 //    La validación del hito se delega a un oracle ajeno a este contrato.
 interface IScientificOracle {
-    function validateMilestone(
-        address project,
-        uint256 milestoneId,
-        string memory ipfsHash,
-        uint256 amount
-    ) external view returns (bool);
+    function validateMilestone(address project, uint256 milestoneId, string memory ipfsHash, uint256 amount)
+        external
+        view
+        returns (bool);
 }
 
 contract ScientificFundOracle is Ownable, ReentrancyGuard {
@@ -143,12 +141,10 @@ contract ScientificFundOracle is Ownable, ReentrancyGuard {
         if (milestones[_milestoneId].released) revert MilestoneAlreadyReleased();
         if (oracle == address(0)) revert InvalidOracle();
 
-        bool approved = IScientificOracle(oracle).validateMilestone(
-            owner(),
-            _milestoneId,
-            milestones[_milestoneId].ipfsHash,
-            milestones[_milestoneId].amount
-        );
+        bool approved = IScientificOracle(oracle)
+            .validateMilestone(
+                owner(), _milestoneId, milestones[_milestoneId].ipfsHash, milestones[_milestoneId].amount
+            );
 
         milestones[_milestoneId].oracleApproved = approved;
         emit OracleApproval(_milestoneId, approved);
@@ -178,7 +174,7 @@ contract ScientificFundOracle is Ownable, ReentrancyGuard {
         milestone.released = true;
         totalReleased += milestone.amount;
 
-        (bool success, ) = payable(owner()).call{value: milestone.amount}("");
+        (bool success,) = payable(owner()).call{value: milestone.amount}("");
         if (!success) revert TransferFailed();
 
         emit MilestoneReleased(_milestoneId, milestone.amount, owner());

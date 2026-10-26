@@ -81,12 +81,7 @@ contract ScientificFund is Ownable, ReentrancyGuard {
 
         uint256 milestoneId = milestoneCount;
         milestones[milestoneId] = Milestone({
-            title: _title,
-            ipfsHash: _ipfsHash,
-            amount: _amount,
-            released: false,
-            votesFor: 0,
-            votesAgainst: 0
+            title: _title, ipfsHash: _ipfsHash, amount: _amount, released: false, votesFor: 0, votesAgainst: 0
         });
         milestoneCount++;
 
@@ -135,7 +130,7 @@ contract ScientificFund is Ownable, ReentrancyGuard {
         milestone.released = true;
         totalReleased += milestone.amount;
 
-        (bool success, ) = payable(owner()).call{value: milestone.amount}("");
+        (bool success,) = payable(owner()).call{value: milestone.amount}("");
         if (!success) revert TransferFailed();
 
         emit MilestoneReleased(_milestoneId, milestone.amount, owner());
