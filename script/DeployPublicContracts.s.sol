@@ -11,6 +11,11 @@ contract DeployPublicContracts is Script {
     function run() external returns (ScientificOracle oracle, ScientificFundOracle fund) {
         // 2) El owner del proyecto y los auditores deben venir del entorno.
         //    En una red real, estos valores se configuran con la wallet del cliente.
+        //    Ejemplo:
+        //    $env:PROJECT_OWNER = "0x000000000000000000000000000000000"
+        //    $env:AUDITOR_1 = "0x3000000000000000000000000000ce0"
+        //    $env:AUDITOR_2 = "0xb0000000000000000000000000000000000009a17"
+        //    $env:AUDITOR_3 = "0xe00000000000000000000000000000000000055a1f05"
         address projectOwner = vm.envAddress("PROJECT_OWNER");
         address auditor1 = vm.envAddress("AUDITOR_1");
         address auditor2 = vm.envAddress("AUDITOR_2");

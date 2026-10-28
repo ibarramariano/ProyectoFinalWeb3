@@ -60,6 +60,13 @@ contract ScientificFundOracle is Ownable, ReentrancyGuard {
 
     // 2) Constructor: recibe la dirección del contrato oracle externo.
     //    Ese address se guarda en storage y será usado más adelante para invocarlo.
+    //    Ejemplo de uso correcto:
+    //    ScientificFundOracle fund = new ScientificFundOracle(
+    //        0x1111111111111111111111111111111111111111,
+    //        [0x222..., 0x333..., 0x444...],
+    //        0x5555555555555555555555555555555555555555
+    //    );
+    //    Si alguna dirección es 0x000... o no llega definida, la transacción hace revert.
     constructor(address _projectOwner, address[] memory _auditors, address _oracle) Ownable(_projectOwner) {
         if (_projectOwner == address(0)) revert ZeroAddress();
         if (_auditors.length == 0) revert ZeroAddress();
@@ -174,7 +181,7 @@ contract ScientificFundOracle is Ownable, ReentrancyGuard {
         milestone.released = true;
         totalReleased += milestone.amount;
 
-        (bool success,) = payable(owner()).call{value: milestone.amount}("");
+        (bool success, ) = payable(owner()).call{value: milestone.amount}("");
         if (!success) revert TransferFailed();
 
         emit MilestoneReleased(_milestoneId, milestone.amount, owner());

@@ -2,6 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ethers } from 'ethers'
 import './App.css'
 import { CONTRACT_ADDRESS, SCIENTIFIC_FUND_ABI } from './contract'
+import {
+  decryptText,
+  encryptText,
+  parseEncrypted,
+  serializeEncrypted,
+} from './utils/crypto'
 
 const milestones = [
   {
@@ -40,7 +46,9 @@ function App() {
   const [status, setStatus] = useState('MetaMask no conectado')
   const [isLoading, setIsLoading] = useState(false)
   const [contract, setContract] = useState(null)
+  const [cryptoDemo, setCryptoDemo] = useState('')
 
+  const secret = import.meta.env.VITE_CRYPTO_SECRET || 'demo-local-secret'
   const selectedMilestone = useMemo(() => milestones[selected], [selected])
 
   const refreshRaised = useCallback(async (contractInstance) => {
@@ -89,6 +97,7 @@ function App() {
     try {
       setIsLoading(true)
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
+      await ensureLocalNetwork()
       const provider = new ethers.BrowserProvider(window.ethereum)
       const signer = await provider.getSigner()
       const contractInstance = new ethers.Contract(
@@ -97,7 +106,6 @@ function App() {
         signer,
       )
 
-      await ensureLocalNetwork()
       setWallet(accounts[0])
       setContract(contractInstance)
       await refreshRaised(contractInstance)
@@ -142,15 +150,35 @@ function App() {
       return
     }
 
-    const value = Number(donation)
-    if (!Number.isFinite(value) || value <= 0) {
+    let amountWei
+    try {
+      amountWei = ethers.parseEther(donation.trim())
+    } catch {
+      setStatus('Introduce una cantidad decimal válida (máximo 18 decimales).')
+      return
+    }
+
+    if (amountWei <= 0n) {
       setStatus('Introduce una cantidad válida.')
       return
     }
 
     try {
       setIsLoading(true)
-      const tx = await contract.contribute({ value: ethers.parseEther(String(value)) })
+      const provider = new ethers.BrowserProvider(window.ethereum)
+      const network = await provider.getNetwork()
+      if (network.chainId !== 31337n) {
+        setStatus('Selecciona Anvil Local (chain ID 31337) en MetaMask.')
+        return
+      }
+
+      const deployedCode = await provider.getCode(CONTRACT_ADDRESS)
+      if (deployedCode === '0x') {
+        setStatus('No hay contrato en esta instancia de Anvil. Vuelve a desplegar ScientificFund.')
+        return
+      }
+
+      const tx = await contract.contribute({ value: amountWei })
       setStatus('Transacción enviada. Esperando confirmación...')
       await tx.wait()
       await refreshRaised(contract)
@@ -159,6 +187,18 @@ function App() {
       setStatus(error.shortMessage || error.message || 'La transacción falló.')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleCryptoDemo = async () => {
+    try {
+      const plainText = `dato-sensible:${wallet || 'usuario-local'}`
+      const encrypted = await encryptText(plainText, secret)
+      const serialized = serializeEncrypted(encrypted)
+      const decrypted = await decryptText(parseEncrypted(serialized), secret)
+      setCryptoDemo(`Cifrado OK: ${decrypted}`)
+    } catch (error) {
+      setCryptoDemo(`Error de cifrado: ${error.message}`)
     }
   }
 
@@ -291,6 +331,19 @@ function App() {
               </li>
             ))}
           </ul>
+        </section>
+
+        <section className="panel">
+          <div className="panel-header">
+            <h3>Ejemplo de cifrado local</h3>
+            <span>Secreto desde VITE_CRYPTO_SECRET</span>
+          </div>
+
+          <button type="button" className="primary-btn" onClick={handleCryptoDemo}>
+            Probar cifrado/descifrado
+          </button>
+
+          {cryptoDemo && <p className="status-text">{cryptoDemo}</p>}
         </section>
       </main>
     </div>
