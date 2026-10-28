@@ -150,12 +150,32 @@ export FUND_ADDRESS=<dirección de ScientificFundOracle>
 forge script script/Interact.s.sol --rpc-url sepolia --broadcast
 ```
 
-### 4. Frontend
+### 4. Demo local con Anvil + MetaMask
+
+Terminal 1 – nodo local:
+```bash
+anvil
+```
+
+Terminal 2 – deploy con las cuentas de prueba de Anvil (cuenta 0 = owner, 1-3 = auditores; claves públicas de Anvil, **solo para red local**):
+```bash
+export PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+export AUDITOR_1_PK=0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d
+export AUDITOR_2_PK=0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a
+export AUDITOR_3_PK=0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6
+forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast
+```
+En una instancia limpia de Anvil, `ScientificFundOracle` queda en `0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512`, que es la dirección configurada en `frontend/src/contract.js`.
+
+En MetaMask: agregar la red `Anvil Local` (RPC `http://127.0.0.1:8545`, chain ID `31337`) e importar una cuenta de Anvil.
+
+Terminal 3 – frontend:
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
+Abrir <http://127.0.0.1:5173>, conectar MetaMask y donar. Anvil y Sepolia son redes distintas: las transacciones locales no aparecen en Etherscan.
 
 ## XI. Red y contratos desplegados
 
