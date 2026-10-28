@@ -34,127 +34,173 @@ El sistema propuesto aporta valor en dos niveles:
 
 ## V. Estructura del repositorio
 
+## V. Arquitectura
+
+```text
+                ┌──────────────────────────┐   validateMilestone()   ┌─────────────────────┐
+ Donantes ────► │   ScientificFundOracle   │ ──────────────────────► │  ScientificOracle   │
+ contribute()   │  (escrow + gobernanza)   │ ◄────── bool ────────── │ (validador externo) │
+                └──────────────────────────┘                         └─────────────────────┘
+ Owner: createMilestone / releaseMilestone      Auditores: voteMilestone
+```
+
+| Contrato | Rol |
+|---|---|
+| `contracts/ScientificFundOracle.sol` | Escrow principal: donaciones, hitos, votación de auditores, liberación de fondos. Usa `Ownable` y `ReentrancyGuard` de OpenZeppelin. |
+| `contracts/ScientificOracle.sol` | Oráculo propio que valida la evidencia de cada hito. Se consulta mediante **llamada inter-contrato**. |
+| `contracts/interfaces/IScientificOracle.sol` | Interfaz común: permite reemplazar el oráculo sin tocar el escrow. |
+
+### Flujo principal
+1. Cualquier donante llama a `contribute()` y envía ETH al escrow.
+2. El owner (responsable del proyecto) crea un hito con `createMilestone(title, ipfsHash, amount)`.
+3. Los auditores votan con `voteMilestone(id, support)`; se requiere **mayoría absoluta** (`auditores/2 + 1`).
+4. Cualquiera llama a `validateMilestone(id)`: el escrow consulta al `ScientificOracle` y guarda el resultado.
+5. El owner llama a `releaseMilestone(id)`: si hay mayoría + aprobación del oráculo + saldo, se transfieren los fondos.
+
+### Roles y permisos
+| Rol | Puede |
+|---|---|
+| Owner | `createMilestone`, `releaseMilestone` (recibe los fondos liberados) |
+| Auditor | `voteMilestone` (un voto por hito) |
+| Cualquiera | `contribute`, `validateMilestone`, lecturas |
+
+### Decisiones de seguridad y gas
+- **Checks-Effects-Interactions** en `releaseMilestone` + `nonReentrant` (cubierto con test de reentrada).
+- **Custom errors con parámetros** en lugar de strings.
+- `oracle` es `immutable`; el struct `Milestone` empaqueta `amount (uint128)`, votos (`uint32`) y flags en un solo slot.
+- `calldata` para strings de entrada; lecturas de storage cacheadas en variables locales; `unchecked` en el incremento del loop.
+- `title` e `ipfsHash` se guardan como `string` porque son necesarios para la solución (el CID de IPFS no entra en `bytes32`).
+- NatSpec completo en contratos, eventos, errores, modifiers y funciones.
+
+## VI. Estructura del repositorio
+
 ```text
 ProyectoFinalWeb3/
-├── contracts/                     # Smart contract source code
-│   ├── ScientificFund.sol
+├── contracts/
 │   ├── ScientificFundOracle.sol
-│   └── Counter.sol
-├── test/                         # Unit tests
-│   ├── ScientificFund.t.sol
-│   ├── ScientificFundOracle.t.sol
-│   └── Counter.t.sol
-├── script/                       # Deployment scripts
-│   └── ScientificFund.s.sol
-├── frontend/                     # Frontend demo
-├── lib/                          # Foundry dependencies
-├── README.md
-├── foundry.toml
-├── .gitmodules
-└── .gitignore
+│   ├── ScientificOracle.sol
+│   └── interfaces/IScientificOracle.sol
+├── test/ScientificFundOracle.t.sol     # 34 tests (unit, revert, reentrancy, fuzz)
+├── script/
+│   ├── Deploy.s.sol                    # deploy de oráculo + escrow
+│   └── Interact.s.sol                  # flujo completo on-chain
+├── frontend/                           # demo React + ethers
+├── .env.example
+└── foundry.toml
 ```
 
-## VI. Smart Contract diseño
+## VII. Instalación y compilación
 
-### Fondo Científico - ScientificFund
-El contrato base implementa la lógica fundamental de financiación:
-- gestión de donaciones y depósitos en garantía (escrow)
-- establecimiento de hitos
-- votación por parte de múltiples auditores
-- liberación de fondos sujeta únicamente a la aprobación por mayoría
-- eventos públicos para garantizar la transparencia y la trazabilidad
+Requisitos: [Foundry](https://book.getfoundry.sh/getting-started/installation), Node 20+ (frontend), Python 3 (Slither).
 
-### ScientificFundOracle
-La versión extendida añade una capa de validación externa antes de la liberación de los fondos. Esto simula un proceso real de carácter institucional o de validación de datos, mediante el cual se confirma la validez de las pruebas que acreditan el cumplimiento de un hito antes de autorizar el pago final.
-
-Esto demuestra cómo un proyecto puede combinar la gobernanza *on-chain* (en la cadena de bloques) con servicios de verificación externos o *off-chain* (fuera de la cadena).
-
-## VII. Requisitos de ingeniería cumplidos
-
-Este proyecto aborda los requisitos de ingeniería y desarrollo para una solución Web3:
-
-- Seguridad y estructura: uso de `Ownable`, `ReentrancyGuard`, validación de entradas y patrones de «verificaciones-efectos-interacciones» (*checks-effects-interactions*).
-- Solidity profesional: variables de estado públicas, errores personalizados, eventos estructurados y gestión optimizada de valores.
-- Modularidad: separación clara entre la lógica central de financiación y la extensión basada en oráculos.
-- Capacidad de prueba: pruebas unitarias automatizadas mediante Foundry.
-
-# VIII. Conjunto de pruebas
-
-Las pruebas unitarias validan la lógica funcional principal:
-- flujo de donaciones
-- creación de hitos
-- votación para la aprobación o el rechazo
-- condiciones de liberación basadas en una votación por mayoría
-- flujos de rechazo y aprobación basados ​​en oráculos
-
-## IX. Cómo ejecutar el proyecto
-
-### 1. Instalar Foundry
-
-```powershell
-curl -L https://foundry.paradigm.xyz | bash
-foundryup
+```bash
+git clone --recurse-submodules https://github.com/melisacruzmartinez/ProyectoFinalWeb3.git
+cd ProyectoFinalWeb3
+forge build
 ```
 
-### 2. Ejecutar el conjunto de pruebas
+## VIII. Tests y coverage
 
-```powershell
-cd E:\repos\ProyectoFinalWeb3
-& "C:\Users\admin\.foundry\bin\forge.exe" test
+```bash
+forge test -vv
+forge coverage --no-match-coverage "script|test"
 ```
 
-### 3. Deploy a una public EVM network
+Resultado: **34 tests pasan (100%)**.
 
-```powershell
-cd E:\repos\ProyectoFinalWeb3
-$env:SEPOLIA_RPC_URL = "https://sepolia.infura.io/v3/<your-key>"
-$env:PROJECT_OWNER = "0x..."
-$env:AUDITOR_1 = "0x..."
-$env:AUDITOR_2 = "0x..."
-$env:AUDITOR_3 = "0x..."
-$env:PRIVATE_KEY = "0x..."
+| Archivo | Lines | Statements | Branches | Funcs |
+|---|---|---|---|---|
+| ScientificFundOracle.sol | 100% | 100% | 100% | 100% |
+| ScientificOracle.sol | 100% | 100% | 100% | 100% |
 
-& "C:\Users\admin\.foundry\bin\forge.exe" script script/DeployPublicContracts.s.sol --rpc-url $env:SEPOLIA_RPC_URL --broadcast --private-key $env:PRIVATE_KEY
+Incluye: flujo completo exitoso, dos hitos consecutivos, todos los custom errors, rechazo del oráculo, fallo de transferencia, intento de reentrada y un test de fuzzing sobre donaciones.
+
+## IX. Análisis estático (Slither)
+
+```bash
+pip install slither-analyzer
+slither . --filter-paths "lib/|test/|script/" --exclude-dependencies
 ```
 
-### 4. solo para Local development
+| Detector | Ubicación | Estado | Justificación |
+|---|---|---|---|
+| `low-level-calls` | `releaseMilestone` → `recipient.call{value: amount}("")` | **Aceptado** | Es el patrón recomendado para enviar ETH (evita el límite de 2300 gas de `transfer`). Se verifica el retorno (`TransferFailed`), se aplica CEI y `nonReentrant`. |
+| `naming-convention` | Parámetros con prefijo `_` | **Aceptado** | Convención de estilo del equipo para distinguir parámetros de variables de estado. Sin impacto en seguridad. |
 
-```powershell
-cd E:\repos\ProyectoFinalWeb3
-& "C:\Users\admin\.foundry\bin\anvil.exe" --host 127.0.0.1 --port 8545
+Findings corregidos respecto de la versión anterior: chequeo de saldo que contaba dos veces lo liberado, función del oráculo que debía ser `pure`, variable `oracle` que debía ser `immutable`, `ReentrancyGuard` innecesario en `contribute`.
+
+## X. Deploy y uso
+
+### 1. Configurar variables
+```bash
+cp .env.example .env
+cast wallet new   # repetir 3 veces y copiar las private keys en AUDITOR_1_PK..3
+# completar PRIVATE_KEY (con Sepolia ETH) y ETHERSCAN_API_KEY
+source .env
 ```
 
-### 5. Run frontend demo
+### 2. Deploy + verificación en Sepolia
+```bash
+forge script script/Deploy.s.sol --rpc-url sepolia --broadcast --verify
+```
 
-```powershell
-cd E:\repos\ProyectoFinalWeb3\frontend
-$env:PATH += ';C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Microsoft\VisualStudio\NodeJs'
+### 3. Ejecutar el flujo principal on-chain
+```bash
+export FUND_ADDRESS=<dirección de ScientificFundOracle>
+forge script script/Interact.s.sol --rpc-url sepolia --broadcast
+```
+
+### 4. Frontend
+```bash
+cd frontend
 npm install
-npm run dev -- --host 0.0.0.0
+npm run dev
 ```
 
-## X. Roadmap
+## XI. Red y contratos desplegados
 
-### Fase 1 - MVP *on-chain*
-- Contrato de financiación basado en un mecanismo de depósito en garantía (*escrow*)
-- Lógica de aprobación mediante múltiples auditores
-- Despliegue y pruebas automatizados
+Red: **Sepolia** (chainId 11155111)
 
-### Fase 2 - Capa de validación científica
-- Validación de hitos mediante oráculos
-- Mejoras en la gobernanza y soporte para múltiples proyectos
-- Integración con referencias probatorias públicas y metadatos en IPFS
+| Contrato | Dirección | Código verificado |
+|---|---|---|
+| ScientificOracle | `TODO` | TODO |
+| ScientificFundOracle | `TODO` | TODO |
 
-### Fase 3 - Producto orientado al usuario
-- Panel de control (*dashboard*) más completo
-- Integración con monederos (*wallets*) como MetaMask
-- Conexión a redes de prueba (*testnets*) públicas
+### Transacciones reales del flujo principal
 
-### Fase 4 - Preparación para producción
-- Auditoría de seguridad formal
-- Despliegue en una red de prueba pública
-- Evolución de la gobernanza hacia un modelo de DAO o comité institucional
+| Paso | Tx |
+|---|---|
+| Donación (`contribute`) | TODO |
+| Crear hito (`createMilestone`) | TODO |
+| Voto auditor 1 | TODO |
+| Voto auditor 2 | TODO |
+| Validación oráculo (`validateMilestone`) | TODO |
+| Liberación (`releaseMilestone`) | TODO |
 
-## XI. Conclusión
+## XII. Limitaciones conocidas del MVP
 
-Este proyecto demuestra cómo la tecnología *blockchain* puede mejorar la rendición de cuentas en la financiación pública y científica, transformando la gobernanza y la distribución de fondos en reglas transparentes y programables. La implementación combina la seguridad de los contratos inteligentes, la redundancia en la toma de decisiones y la trazabilidad de las evidencias, ofreciendo una base práctica para fomentar la confianza en la financiación de la investigación mediante tecnología *blockchain*.
+- El oráculo es determinista: valida formato (dirección, CID no vacío, monto > 0), no el contenido científico de la evidencia.
+- La lista de auditores es fija desde el deploy (no hay alta/baja).
+- No hay devolución a donantes si un hito es rechazado ni plazos de votación.
+- Un solo proyecto por contrato.
+- No se verifica on-chain que el CID exista en IPFS.
+
+## XIII. Roadmap
+
+### Fase 2 – Funcionalidad
+- Factory para desplegar un escrow por proyecto.
+- Reembolso proporcional a donantes si un hito es rechazado o vence el plazo.
+- Deadlines de votación y quórum configurable.
+- Alta/baja de auditores mediante gobernanza (multisig o DAO).
+- Donaciones en stablecoins (ERC-20 con `SafeERC20`).
+
+### Fase 3 – Seguridad y escalabilidad
+- Oráculo real (Chainlink Functions o red de validadores con firmas EIP-712) detrás de la misma interfaz.
+- `Pausable` y timelock para operaciones críticas.
+- Fuzzing e invariant testing ampliado; auditoría externa.
+- Deploy en una L2 (Arbitrum/Base) para reducir costos de votación.
+- Indexado de eventos con The Graph para el dashboard.
+
+## XIV. Conclusión
+
+Este proyecto demuestra cómo la tecnología *blockchain* puede mejorar la rendición de cuentas en la financiación pública y científica, transformando la gobernanza y la distribución de fondos en reglas transparentes y programables.
